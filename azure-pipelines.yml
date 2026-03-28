@@ -9,7 +9,6 @@ pr:
       - master
 
 variables:
-  vmImageName: 'ubuntu-latest'
   nodeVersion: '20.x'
   azureServiceConnection: 'azure-conn-focusboard'
   resourceGroupName: 'rg-focusboard-demo'
@@ -24,7 +23,7 @@ stages:
       - job: Build
         displayName: 'Install, Test, Package'
         pool:
-          vmImage: $(vmImageName)
+          name: 'MacPool'
         steps:
           - task: NodeTool@0
             inputs:
@@ -65,7 +64,7 @@ stages:
         displayName: 'Deploy to Dev App Service'
         environment: dev
         pool:
-          vmImage: $(vmImageName)
+          name: 'MacPool'
         strategy:
           runOnce:
             deploy:
@@ -96,7 +95,7 @@ stages:
         displayName: 'Deploy to Staging Slot'
         environment: staging
         pool:
-          vmImage: $(vmImageName)
+          name: 'MacPool'
         strategy:
           runOnce:
             deploy:
@@ -129,7 +128,7 @@ stages:
       - job: SwapSlots
         displayName: 'Swap staging -> production'
         pool:
-          vmImage: $(vmImageName)
+          name: 'MacPool'
         steps:
           - task: AzureCLI@2
             displayName: 'Swap slots'
@@ -157,7 +156,7 @@ stages:
       - job: RollbackSwap
         displayName: 'Swap back to previous version'
         pool:
-          vmImage: $(vmImageName)
+          name: 'MacPool'
         steps:
           - task: AzureCLI@2
             displayName: 'Rollback swap'
