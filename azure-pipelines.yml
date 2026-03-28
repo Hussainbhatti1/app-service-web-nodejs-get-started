@@ -8,36 +8,166 @@ pr:
     include:
       - master
 
-pool:
-  vmImage: 'ubuntu-latest'
+variables:
+  vmImageName: 'ubuntu-latest'
+  nodeVersion: '20.x'
+  azureServiceConnection: 'azure-conn-focusboard'
+  resourceGroupName: 'rg-focusboard-demo'
+  devWebAppName: 'hussain-focusboard-dev'
+  prodWebAppName: 'hussain-focusboard-prod'
+  stagingSlotName: 'staging'
 
-steps:
-  - task: NodeTool@0
-    inputs:
-      versionSpec: '20.x'
-    displayName: 'Use Node.js 20'
+stages:
+  - stage: Build_Test
+    displayName: 'Build and Test'
+    jobs:
+      - job: Build
+        displayName: 'Install, Test, Package'
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(nodeVersion)
+            displayName: 'Use Node.js $(nodeVersion)'
 
-  - script: |
-      npm install
-    displayName: 'Install dependencies'
+          - script: |
+              npm install
+            displayName: 'Install dependencies'
 
-  - script: |
-      npm test
-    displayName: 'Run tests'
+          - script: |
+              npm test
+            displayName: 'Run tests'
 
-  - script: |
-      npm run build
-    displayName: 'Build app'
+          - script: |
+              npm run build
+            displayName: 'Build app'
 
-  - task: ArchiveFiles@2
-    inputs:
-      rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
-      includeRootFolder: false
-      archiveType: zip
-      archiveFile: '$(Build.ArtifactStagingDirectory)/focusboard.zip'
-      replaceExistingArchive: true
-    displayName: 'Archive app'
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: '$(Build.ArtifactStagingDirectory)/focusboard.zip'
+              replaceExistingArchive: true
+            displayName: 'Archive app'
 
-  - publish: '$(Build.ArtifactStagingDirectory)/focusboard.zip'
-    artifact: drop
-    displayName: 'Publish artifact'
+          - publish: '$(Build.ArtifactStagingDirectory)/focusboard.zip'
+            artifact: drop
+            displayName: 'Publish artifact'
+
+  - stage: Deploy_Dev
+    displayName: 'Deploy to Dev'
+    dependsOn: Build_Test
+    condition: succeeded()
+    jobs:
+      - deployment: DeployDev
+        displayName: 'Deploy to Dev App Service'
+        environment: dev
+        pool:
+          vmImage: $(vmImageName)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Dev Web App'
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    appType: webAppLinux
+                    appName: $(devWebAppName)
+                    package: '$(Pipeline.Workspace)/drop/focusboard.zip'
+                    runtimeStack: 'NODE|20-lts'
+
+                - script: |
+                    sleep 25
+                    curl -f https://$(devWebAppName).azurewebsites.net/health
+                  displayName: 'Health check - Dev'
+
+  - stage: Deploy_Staging
+    displayName: 'Deploy to Staging Slot'
+    dependsOn: Deploy_Dev
+    condition: succeeded()
+    jobs:
+      - deployment: DeployStaging
+        displayName: 'Deploy to Staging Slot'
+        environment: staging
+        pool:
+          vmImage: $(vmImageName)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to staging slot'
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    appType: webAppLinux
+                    appName: $(prodWebAppName)
+                    deployToSlotOrASE: true
+                    resourceGroupName: $(resourceGroupName)
+                    slotName: $(stagingSlotName)
+                    package: '$(Pipeline.Workspace)/drop/focusboard.zip'
+                    runtimeStack: 'NODE|20-lts'
+
+                - script: |
+                    sleep 25
+                    curl -f https://$(prodWebAppName)-$(stagingSlotName).azurewebsites.net/health
+                  displayName: 'Health check - Staging'
+
+  - stage: Swap_To_Production
+    displayName: 'Swap Staging to Production'
+    dependsOn: Deploy_Staging
+    condition: succeeded()
+    jobs:
+      - job: SwapSlots
+        displayName: 'Swap staging -> production'
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: AzureCLI@2
+            displayName: 'Swap slots'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az webapp deployment slot swap \
+                  --name $(prodWebAppName) \
+                  --resource-group $(resourceGroupName) \
+                  --slot $(stagingSlotName) \
+                  --target-slot production
+
+          - script: |
+              sleep 25
+              curl -f https://$(prodWebAppName).azurewebsites.net/health
+            displayName: 'Post-swap production health check'
+
+  - stage: Rollback
+    displayName: 'Rollback if production validation fails'
+    dependsOn: Swap_To_Production
+    condition: failed('Swap_To_Production')
+    jobs:
+      - job: RollbackSwap
+        displayName: 'Swap back to previous version'
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: AzureCLI@2
+            displayName: 'Rollback swap'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az webapp deployment slot swap \
+                  --name $(prodWebAppName) \
+                  --resource-group $(resourceGroupName) \
+                  --slot $(stagingSlotName) \
+                  --target-slot production
