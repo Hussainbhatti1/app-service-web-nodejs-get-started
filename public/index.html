@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FocusBoard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <h1>FocusBoard</h1>
+      <p>Your personal productivity dashboard</p>
+    </header>
+
+    <section class="card quote-card">
+      <h2>Motivational Quote</h2>
+      <p id="quoteText">Loading quote...</p>
+      <button id="newQuoteBtn">New Quote</button>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Today's Goals</h2>
+        <div class="input-row">
+          <input id="goalInput" type="text" placeholder="Add a goal..." />
+          <button id="addGoalBtn">Add</button>
+        </div>
+        <ul id="goalList"></ul>
+      </div>
+
+      <div class="card">
+        <h2>Quick Notes</h2>
+        <textarea id="notesArea" placeholder="Write your notes here..."></textarea>
+        <button id="saveNotesBtn">Save Notes</button>
+        <p id="saveMessage"></p>
+      </div>
+    </section>
+
+    <section class="card info-card">
+      <h2>App Info</h2>
+      <pre id="appInfo">Loading app info...</pre>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
