@@ -12,9 +12,9 @@ variables:
   nodeVersion: '20.x'
   azureServiceConnection: 'azure-conn-focusboard'
   resourceGroupName: 'rg-focusboard-demo'
-  devWebAppName: 'hussain-focusboard-dev'
-  prodWebAppName: 'hussain-focusboard-prod'
-  stagingSlotName: 'staging'
+  devWebAppName: 'hussain-focusboard-dev-hxfke7emhnaea4a7'
+  prodWebAppName: 'hussain-focusboard-prod-dyebgjd5cbhwfadg'
+  stagingSlotName: 'hussain-focusboard-prod-staging-fbf2d3fffbh9cnen'
 
 stages:
   - stage: Build_Test
