@@ -12,10 +12,15 @@ variables:
   nodeVersion: '20.x'
   azureServiceConnection: 'azure-conn-focusboard'
   resourceGroupName: 'rg-focusboard-demo'
+
   devWebAppName: 'hussain-focusboard-dev'
   devWebAppHost: 'hussain-focusboard-dev-hxfke7emhnaea4a7.canadacentral-01.azurewebsites.net'
+
   prodWebAppName: 'hussain-focusboard-prod'
+  prodWebAppHost: 'hussain-focusboard-prod-dyebgjd5cbhwfadg.canadacentral-01.azurewebsites.net'
+
   stagingSlotName: 'staging'
+  stagingWebAppHost: 'hussain-focusboard-prod-staging-fbf2d3fffbh9cnen.canadacentral-01.azurewebsites.net'
 
 stages:
   - stage: Build_Test
@@ -84,7 +89,7 @@ stages:
 
                 - script: |
                     sleep 25
-                    curl -f https://$(devWebAppName).azurewebsites.net/health
+                    curl -f https://$(devWebAppHost)/health
                   displayName: 'Health check - Dev'
 
   - stage: Deploy_Staging
@@ -118,7 +123,7 @@ stages:
 
                 - script: |
                     sleep 25
-                    curl -f https://$(prodWebAppName)-$(stagingSlotName).azurewebsites.net/health
+                    curl -f https://$(stagingWebAppHost)/health
                   displayName: 'Health check - Staging'
 
   - stage: Swap_To_Production
@@ -146,7 +151,7 @@ stages:
 
           - script: |
               sleep 25
-              curl -f https://$(prodWebAppName).azurewebsites.net/health
+              curl -f https://$(prodWebAppHost)/health
             displayName: 'Post-swap production health check'
 
   - stage: Rollback
